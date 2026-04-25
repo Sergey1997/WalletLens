@@ -45,9 +45,12 @@ export default function Methodology() {
       <h2>Scoring model</h2>
       <p>
         The <strong>headline wallet score</strong> is a single number from <strong>0 to 100</strong> where{" "}
-        <strong>100 is the best</strong> score. It is derived as: <code>100 − riskBurden + trustBoost</code>, where{" "}
-        <code>trustBoost = (trustScore / 100) × 15</code> (capped so the final score never exceeds 100). Raw{" "}
-        <code>trustScore</code> and <code>riskScore</code> (risk burden) are still shown for auditability.
+        <strong>100 is the best</strong> score. It is derived as:{" "}
+        <code>100 − (riskBurden × 1.5) + trustBoost</code>, where{" "}
+        <code>trustBoost = (trustScore / 100) × 15</code>, with the result clamped to <code>[0, 100]</code>. The
+        <code>×1.5</code> multiplier is intentional: each point of Risk burden subtracts more than one point from
+        the headline so mid-range risk is meaningfully visible. Raw <code>trustScore</code> and{" "}
+        <code>riskScore</code> are still shown for auditability.
       </p>
       <p>
         Under the hood, risk and trust are computed from separate signals. A wallet can be both well-attributed (trust)

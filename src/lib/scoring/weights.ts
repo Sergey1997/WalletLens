@@ -1,6 +1,12 @@
 /** Max points trust can add to `walletScore` (on top of 100 − riskScore). Capped in engine. */
 export const TRUST_WALLET_BOOST_MAX = 15;
 
+/**
+ * How aggressively each point of Risk burden subtracts from the headline `walletScore`.
+ * 1.5 means a Risk burden of 6 removes 9 points, 20 removes 30, etc. Result is clamped to [0, 100].
+ */
+export const RISK_PENALTY_MULTIPLIER = 1.5;
+
 export const WEIGHTS = {
   directSanctioned: 90,
   selfSanctioned: 100,
@@ -31,4 +37,4 @@ export const TRUST_WEIGHTS = {
   diverseCounterparties: 15,
 } as const;
 
-export const METHODOLOGY_VERSION = "mvp-1.2.0";
+export const METHODOLOGY_VERSION = "mvp-1.3.0";

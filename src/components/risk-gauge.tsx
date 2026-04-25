@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { RISK_PENALTY_MULTIPLIER } from "@/lib/scoring/weights";
 
 interface Props {
   /** 0–100, **100 = best** (primary headline metric). */
@@ -44,9 +45,10 @@ function bandForWalletScore(score: number) {
 export function RiskGauge({ walletScore, riskBurden, trustScore, confidence }: Props) {
   const s = Math.min(100, Math.max(0, walletScore));
   const band = bandForWalletScore(s);
+  const effectivePenalty = Math.round(riskBurden * RISK_PENALTY_MULTIPLIER);
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-8">
-      <div className="relative h-40 w-40 shrink-0">
+      <div className="relative h-36 w-36 shrink-0">
         <svg viewBox="0 0 120 120" className="h-full w-full -rotate-[135deg]">
           <circle
             cx="60"
@@ -74,7 +76,7 @@ export function RiskGauge({ walletScore, riskBurden, trustScore, confidence }: P
           <span className="text-4xl font-bold tracking-tight" style={{ color: band.color }}>
             {s}
           </span>
-          <span className="text-[11px] uppercase tracking-widest text-muted-foreground">wallet</span>
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground">wallet</span>
         </div>
       </div>
       <div className="flex-1 space-y-3">
@@ -84,24 +86,27 @@ export function RiskGauge({ walletScore, riskBurden, trustScore, confidence }: P
         </div>
         <div className="grid grid-cols-3 gap-3 text-sm">
           <div>
-            <div className="text-muted-foreground text-xs uppercase tracking-widest">Risk burden</div>
-            <div className="text-2xl font-semibold text-amber-200/90">{riskBurden}</div>
-            <div className="text-[10px] text-muted-foreground">higher = worse</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Risk burden</div>
+            <div className="text-xl font-semibold text-amber-200/90">
+              {riskBurden}
+              <span className="ml-1 text-xs text-amber-300/70">−{effectivePenalty} pts</span>
+            </div>
+            <div className="text-[10px] text-muted-foreground">×{RISK_PENALTY_MULTIPLIER} multiplier</div>
           </div>
           <div>
-            <div className="text-muted-foreground text-xs uppercase tracking-widest">Trust</div>
-            <div className="text-2xl font-semibold text-emerald-300">{trustScore}</div>
-            <div className="text-[10px] text-muted-foreground">raw sum</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Trust</div>
+            <div className="text-xl font-semibold text-emerald-300">{trustScore}</div>
+            <div className="text-[10px] text-muted-foreground">positive boost</div>
           </div>
           <div>
-            <div className="text-muted-foreground text-xs uppercase tracking-widest">Coverage</div>
-            <div className="text-2xl font-semibold capitalize">{confidence}</div>
+            <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Coverage</div>
+            <div className="text-xl font-semibold capitalize">{confidence}</div>
             <div className="text-[10px] text-muted-foreground">data depth</div>
           </div>
         </div>
-        <p className="text-xs text-muted-foreground max-w-md">
-          <strong className="text-foreground/90">Wallet score</strong> includes negative signals and uncertainty. A new
-          wallet with little history should not receive a perfect score even when no direct sanctions hit is found.
+        <p className="max-w-md text-xs text-muted-foreground">
+          Each Risk burden point removes {RISK_PENALTY_MULTIPLIER}× from the headline score. Limited history and
+          unattributed counterparties also reduce the score, so a sparse wallet should not reach the top band.
         </p>
       </div>
     </div>

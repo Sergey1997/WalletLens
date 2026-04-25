@@ -17,17 +17,14 @@ function fmtAge(ms?: number) {
 export function ChainCard({ chain, address }: { chain: ChainFacts; address: string }) {
   const cfg = CHAIN_BY_ID[chain.chainId];
   return (
-    <div className="glass rounded-xl p-5 transition-colors hover:border-primary/40">
+    <div className="rounded-xl border border-border/60 p-4 transition-colors hover:border-primary/40">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <span
-            className="inline-block h-2.5 w-2.5 rounded-full"
+            className="inline-block h-2 w-2 rounded-full"
             style={{ background: `hsl(${cfg.accentHsl})` }}
           />
-          <span className="font-semibold">{cfg.name}</span>
-          <Badge variant="outline" className="mono text-[10px]">
-            chainId {cfg.id}
-          </Badge>
+          <span className="text-sm font-semibold">{cfg.name}</span>
         </div>
         <a
           href={explorerAddressUrl(chain.chainId, address)}
@@ -50,8 +47,8 @@ export function ChainCard({ chain, address }: { chain: ChainFacts; address: stri
               {chain.error}
             </p>
           )}
-          <div className="mt-4 grid grid-cols-3 gap-4 text-sm">
-            <Stat label="Txs (scan)" value={String(chain.txCount)} />
+          <div className="mt-3 grid grid-cols-3 gap-3 text-sm">
+            <Stat label="Txs" value={String(chain.txCount)} />
             <Stat label="Counterparties" value={String(chain.uniqueCounterparties)} />
             <Stat label="Age" value={fmtAge(chain.firstSeenMs)} />
           </div>
@@ -98,20 +95,19 @@ export function ChainCard({ chain, address }: { chain: ChainFacts; address: stri
             </div>
           )}
           {chain.graph && (
-            <div className="mt-4 rounded-lg border border-border/80 p-3">
-              <div className="mb-2 text-[11px] uppercase tracking-widest text-muted-foreground">
-                Graph depth · {chain.graph.maxDepth} hops
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                <Stat label="Scanned" value={String(chain.graph.walletsScanned)} />
-                <Stat label="Unique" value={String(chain.graph.uniqueWallets)} />
-                <Stat label="Exposure" value={String(chain.graph.exposures.length)} />
-              </div>
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border/60 pt-3 text-xs text-muted-foreground">
+              <span>
+                Graph · {chain.graph.maxDepth} hops · {chain.graph.walletsScanned} scanned ·{" "}
+                {chain.graph.exposures.length} exposure
+              </span>
               {chain.graph.exposures.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {chain.graph.exposures.slice(0, 5).map((e) => (
-                    <Badge key={`${e.label.address}-${e.depth}-${e.via}`} variant={e.label.category === "sanctioned" ? "severe" : "warning"}>
-                      {e.depth}-hop {e.label.name ?? e.label.category}
+                <div className="flex flex-wrap gap-1.5">
+                  {chain.graph.exposures.slice(0, 4).map((e) => (
+                    <Badge
+                      key={`${e.label.address}-${e.depth}-${e.via}`}
+                      variant={e.label.category === "sanctioned" ? "severe" : "warning"}
+                    >
+                      {e.depth}h {e.label.name ?? e.label.category}
                     </Badge>
                   ))}
                 </div>
@@ -128,7 +124,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
-      <div className="mt-0.5 text-lg font-semibold">{value}</div>
+      <div className="mt-0.5 text-base font-semibold">{value}</div>
     </div>
   );
 }

@@ -17,7 +17,7 @@ import type {
 } from "../types";
 import { daysBetween } from "../utils";
 import { log, logDebug } from "../logger";
-import { METHODOLOGY_VERSION, TRUST_WALLET_BOOST_MAX, TRUST_WEIGHTS, WEIGHTS } from "./weights";
+import { METHODOLOGY_VERSION, RISK_PENALTY_MULTIPLIER, TRUST_WALLET_BOOST_MAX, TRUST_WEIGHTS, WEIGHTS } from "./weights";
 
 interface ScoreInput {
   address: string;
@@ -488,9 +488,14 @@ export function scoreAddress(input: ScoreInput): AddressReport {
   const rawTrust = trust.reduce((s, t) => s + t.weight, 0);
   const trustScore = Math.min(100, Math.round(rawTrust));
 
-  /** Headline: 0–100, **100 = best** — start from no-risk, subtract risk, add limited trust boost. */
+  /**
+   * Headline: 0–100, **100 = best**.
+   * Each point of Risk burden subtracts `RISK_PENALTY_MULTIPLIER` points from the score so
+   * mid-range risk is meaningfully visible (e.g. risk 6 → −9 pts, risk 20 → −30 pts).
+   */
   const trustBoost = (trustScore / 100) * TRUST_WALLET_BOOST_MAX;
-  const walletScore = Math.min(100, Math.max(0, Math.round(100 - riskScore + trustBoost)));
+  const effectivePenalty = riskScore * RISK_PENALTY_MULTIPLIER;
+  const walletScore = Math.min(100, Math.max(0, Math.round(100 - effectivePenalty + trustBoost)));
 
   const confidence: ConfidenceLevel = totalTxs < 10 ? "low" : totalTxs < 200 ? "medium" : "high";
 
@@ -570,6 +575,8 @@ export function scoreAddress(input: ScoreInput): AddressReport {
     address: input.address.toLowerCase(),
     rawRisk: Math.round(rawRisk),
     riskScore,
+    riskPenaltyMultiplier: RISK_PENALTY_MULTIPLIER,
+    effectivePenalty: Math.round(effectivePenalty * 10) / 10,
     rawTrust: Math.round(rawTrust),
     trustScore,
     trustBoost: Math.round((trustScore / 100) * TRUST_WALLET_BOOST_MAX * 100) / 100,
