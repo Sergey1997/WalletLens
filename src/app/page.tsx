@@ -12,15 +12,9 @@ interface ApiSuccess {
   cached: boolean;
 }
 
-interface HistoryItem {
-  address: string;
-  walletScore: number;
-  confidence: AddressReport["confidence"];
-  alertGrade: AddressReport["alertGrade"];
-  createdAtMs: number;
+interface ReportsSuccess {
+  reports: AddressReport[];
 }
-
-const HISTORY_KEY = "walletlens.analysis.history";
 
 const PROGRESS_STEPS = [
   "Validate address",
@@ -35,7 +29,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ApiSuccess | null>(null);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [latestReports, setLatestReports] = useState<AddressReport[]>([]);
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
@@ -48,31 +42,20 @@ export default function Home() {
     return () => window.clearInterval(timer);
   }, [loading]);
 
-  useEffect(() => {
+  const fetchLatestReports = useCallback(async () => {
     try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) setHistory(JSON.parse(raw) as HistoryItem[]);
+      const res = await fetch("/api/reports", { cache: "no-store" });
+      if (!res.ok) return;
+      const json = (await res.json()) as ReportsSuccess;
+      setLatestReports(json.reports ?? []);
     } catch {
-      setHistory([]);
+      setLatestReports([]);
     }
   }, []);
 
-  const saveHistory = useCallback((report: AddressReport) => {
-    setHistory((prev) => {
-      const next = [
-        {
-          address: report.address,
-          walletScore: report.walletScore,
-          confidence: report.confidence,
-          alertGrade: report.alertGrade,
-          createdAtMs: report.createdAtMs,
-        },
-        ...prev.filter((x) => x.address.toLowerCase() !== report.address.toLowerCase()),
-      ].slice(0, 12);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-      return next;
-    });
-  }, []);
+  useEffect(() => {
+    void fetchLatestReports();
+  }, [fetchLatestReports]);
 
   const analyze = useCallback(async (address: string, force = false) => {
     setLoading(true);
@@ -91,14 +74,18 @@ export default function Home() {
       }
       const ok = json as ApiSuccess;
       setData(ok);
-      saveHistory(ok.report);
+      setLatestReports((prev) => [
+        ok.report,
+        ...prev.filter((x) => x.address.toLowerCase() !== ok.report.address.toLowerCase()),
+      ].slice(0, 8));
+      void fetchLatestReports();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unexpected error");
       setData(null);
     } finally {
       setLoading(false);
     }
-  }, [saveHistory]);
+  }, [fetchLatestReports]);
 
   const showLanding = !data && !loading && !error;
 
@@ -139,33 +126,28 @@ export default function Home() {
         )}
       </section>
 
-      {history.length > 0 && showLanding && (
-        <section className="mt-12">
+      {latestReports.length > 0 && !loading && (
+        <section className="mt-10">
           <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-[11px] uppercase tracking-widest text-muted-foreground">Recent checks</h2>
-            <button
-              className="text-xs text-muted-foreground hover:text-foreground"
-              onClick={() => {
-                localStorage.removeItem(HISTORY_KEY);
-                setHistory([]);
-              }}
-            >
-              clear
-            </button>
+            <h2 className="text-[11px] uppercase tracking-widest text-muted-foreground">Latest reports</h2>
+            <span className="text-xs text-muted-foreground">all recent checks</span>
           </div>
           <ul className="divide-y divide-border/60 rounded-xl border border-border/60">
-            {history.slice(0, 6).map((h) => (
-              <li key={`${h.address}-${h.createdAtMs}`}>
+            {latestReports.slice(0, 8).map((report) => (
+              <li key={`${report.address}-${report.createdAtMs}`}>
                 <button
                   className="flex w-full items-center justify-between gap-4 px-4 py-2.5 text-left hover:bg-muted/30"
-                  onClick={() => analyze(h.address)}
+                  onClick={() => {
+                    setError(null);
+                    setData({ report, cached: true });
+                  }}
                   disabled={loading}
                 >
-                  <span className="mono truncate text-xs text-foreground/90">{h.address}</span>
+                  <span className="mono truncate text-xs text-foreground/90">{report.address}</span>
                   <span className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span>score {h.walletScore}</span>
-                    <span className="hidden sm:inline">{h.confidence} confidence</span>
-                    <span>{h.alertGrade}</span>
+                    <span>score {report.walletScore}</span>
+                    <span className="hidden sm:inline">{report.confidence} confidence</span>
+                    <span>{report.alertGrade}</span>
                   </span>
                 </button>
               </li>
@@ -200,23 +182,10 @@ export default function Home() {
       {showLanding && (
         <section className="mt-16 max-w-2xl text-sm text-muted-foreground">
           <h2 className="text-[11px] uppercase tracking-widest text-muted-foreground">How the score is built</h2>
-          <ol className="mt-3 space-y-2">
-            <li>
-              <span className="text-foreground">Ingest.</span> Pull transfers, counterparties and balances per chain;
-              expand the graph up to the configured depth.
-            </li>
-            <li>
-              <span className="text-foreground">Label.</span> Match against curated public lists — OFAC SDN, mixers,
-              CEX wallets, bridges, DeFi routers.
-            </li>
-            <li>
-              <span className="text-foreground">Score.</span> Each Risk burden point reduces the wallet score by
-              1.5×; age, coverage and graph distance also discount the headline.
-            </li>
-            <li>
-              <span className="text-foreground">Explain.</span> Every factor lists weight, source and an evidence link.
-            </li>
-          </ol>
+          <p className="mt-3">
+            WalletLens combines public risk lists, chain activity and graph exposure into a strict score, with source
+            and weight shown for every finding.
+          </p>
         </section>
       )}
 

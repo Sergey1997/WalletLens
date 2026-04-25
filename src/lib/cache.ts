@@ -66,6 +66,7 @@ export async function saveReport(report: AddressReport): Promise<void> {
       address: report.address,
       methodology_version: report.methodologyVersion,
       payload: report,
+      created_at: new Date(report.createdAtMs).toISOString(),
       expires_at: new Date(report.expiresAtMs).toISOString(),
     },
     { onConflict: "cache_key" }
