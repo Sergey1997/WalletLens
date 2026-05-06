@@ -1,5 +1,7 @@
 # WalletLens - EVM wallet risk reports
 
+.
+
 Transparent wallet risk reports across **Ethereum and Base**. Paste an EVM
 address to get a **wallet score 0-100 (100 = strongest)**, risk burden / trust / confidence, per-chain profile and clickable
 evidence for every factor.
