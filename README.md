@@ -88,8 +88,7 @@ UI (Next.js RSC)
 
 ## Roadmap & engine internals
 
-- [`ROADMAP.md`](ROADMAP.md) — план на MVP и Production v1, статус по факту,
-  непрерывный поток пополнения каталога.
+- [`ROADMAP.en.md`](ROADMAP.en.md) — roadmap (English); [`ROADMAP.ru.md`](ROADMAP.ru.md) — дорожная карта (русский); [`ROADMAP.md`](ROADMAP.md) — указатель на обе версии.
 - [`ENGINE.md`](ENGINE.md) — как устроен движок, внутренняя БД (все таблицы +
   ER-диаграмма), как именно мы автоматически отлавливаем подозрительные
   кошельки и как держать каталог живым.

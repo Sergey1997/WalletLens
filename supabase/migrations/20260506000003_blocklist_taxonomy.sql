@@ -1,13 +1,13 @@
--- WalletLens — Crystal-style blocklist taxonomy and address metadata.
+-- WalletLens — extended blocklist taxonomy and address metadata.
 --
--- Goal: let an admin upload entries that look like a Crystal blocklist row:
+-- Goal: let an admin upload entries that look like a tagged blocklist row:
 --   address | currency | tag | owner | mentions | description | date_added
 --
 -- Two changes:
 --   1) `risk_entity_addresses` gains `currency`, `owner_label`, `mentions`,
 --      `entry_description`. `chain_id` becomes optional (so we can track
 --      addresses on non-EVM networks too: BTC, TRX, BCH, …).
---   2) `risk_categories` is seeded with the rich Crystal-style tag set
+--   2) `risk_categories` is seeded with the rich industry-standard tag set
 --      (Conti Hacking, GainBitcoin Scam, US OFAC Sanctions, …) using the
 --      existing `parent_id` column to keep groupings tidy.
 
@@ -66,7 +66,7 @@ create index if not exists risk_entity_addresses_currency_idx
   on public.risk_entity_addresses (currency);
 
 -- =======================================================================
--- 2. Crystal-style tag taxonomy (seeded under existing parents where
+-- 2. Extended tag taxonomy (seeded under existing parents where
 --    possible; new top-level groups only when the existing seed didn't
 --    cover them).
 -- =======================================================================

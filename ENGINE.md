@@ -1,14 +1,122 @@
 # Engine, internal DB, auto-detection / Движок, внутренняя БД и автодетекция
 
 Companion to [`README.md`](README.md), [`METHODOLOGY.md`](METHODOLOGY.md) and
-[`ROADMAP.md`](ROADMAP.md). Документ объясняет, **как именно работает наш
+[`ROADMAP.en.md`](ROADMAP.en.md) / [`ROADMAP.ru.md`](ROADMAP.ru.md). Документ объясняет, **как именно работает наш
 risk-engine**, **из чего состоит наша внутренняя база**, **как она пополняется
 сейчас** и **как мы автоматически отлавливаем подозрительные кошельки** —
 плюс план того, как этот цикл сделать непрерывным.
 
 ---
 
-## 1. Engine at a glance / Движок в одном экране
+## 1. Architecture at a glance / Архитектура в одном экране
+
+![WalletLens architecture: paste wallet → validate & cache → internal directory → on-chain ingest → graph + scoring → wallet report; knowledge base auto-grows from admin imports, external feeds and report auto-capture.](docs/architecture.png)
+
+---
+
+## 2. The user journey / Что видит пользователь
+
+С точки зрения человека, который зашёл на сайт, всё выглядит как одно
+поле «вставь адрес → получи отчёт». Под капотом в этот момент случается
+шесть последовательных шагов:
+
+### Step 1 · Paste wallet / Вставил кошелёк
+
+Юзер открывает главный экран `/`, пастит EVM-адрес и жмёт **Analyze**.
+Никакой авторизации не требуется — публичный режим. На клиенте
+`AddressInput` сразу проверяет EIP-55 / `0x + 40 hex` и блокирует
+кнопку, пока адрес не валиден. По нажатию летит `POST /api/report`.
+
+### Step 2 · Validate & cache / Валидация и кэш
+
+На бэке (`src/app/api/report/route.ts`) запрос проходит:
+
+- **rate-limit** — счётчик в `rate_limit_log` или in-memory (защита от
+  спама),
+- **повторная нормализация адреса** через `viem`,
+- **поиск в кэше отчётов** по ключу
+  `address | methodologyVersion | listsVersionHash | depth | fanout`.
+
+Если такой же запрос уже был и кэш свеж — пользователь видит **готовый
+отчёт за миллисекунды** и помечен флагом `cached: true`. Если нет — идём
+дальше.
+
+> Ключ кэша инкорпорирует версию каталога. Как только админ дозалил в
+> блок-лист новые адреса — старые «чистые» отчёты автоматически
+> протухают и пересчитываются на свежей базе.
+
+### Step 3 · Check our internal Risk Directory / Проверка по нашей базе
+
+Перед обращением к ончейну движок прогревает индекс рисковых сущностей:
+`ensureLabelIndex()` тянет все активные адреса из
+`risk_entity_addresses` (плюс seed-листы из репозитория как fallback) в
+in-memory `Map`. Это «наша приватная блок-карта»: OFAC, миксеры, scam,
+darknet, ransom, эксплоиты, нелицензированные биржи и т.д. — **то, что
+постоянно пополняется** (см. §6).
+
+На этом этапе ничего ещё не запрашивается у Etherscan: если сам адрес
+кошелька прямо матчится с записью каталога — это уже сильный сигнал, и
+он сразу пойдёт в скоринг как `selfSanctioned`/`directRisky`.
+
+### Step 4 · On-chain ingest / Запрос ончейна
+
+`defaultProvider.fetchChainFacts(address, chainId)` параллельно по всем
+поддерживаемым сетям (сейчас Ethereum + Base) забирает:
+
+- баланс и `txCount` — через RPC (Alchemy/Public),
+- последние транзакции и токен-трансферы — через **Etherscan V2**,
+- агрегированный список **топ-контрагентов** (с направлением и объёмом).
+
+Дальше каждый контрагент прогоняется через резолвер (Step 3) — и если
+встречается известная сущность, она попадает в `hitLabels` как «прямое
+взаимодействие».
+
+### Step 5 · Graph expansion + scoring / Граф и оценка
+
+- **Bounded BFS** (`expandGraph()`) обходит соседей кошелька на
+  `GRAPH_MAX_DEPTH` хопов с `GRAPH_FANOUT_PER_NODE` ширины. Если в
+  2 хопах от пользователя сидит darknet market — это даст «непрямой
+  exposure» c затухающим весом.
+- **Scoring engine** (`scoreAddress()` в `src/lib/scoring/engine.ts`)
+  превращает `hitLabels` + `graph.exposures` в `RiskFactor[]` и
+  `TrustSignal[]`, накладывает веса из активного `risk_score_profile`
+  (и `weights.ts` для дефолтов) и выдаёт:
+  `walletScore (0..100, 100 = strongest)`, `riskScore`, `trustScore`,
+  `confidence`, `alertGrade`, `signals`, `factors`, `trust`,
+  `methodologyVersion`, `listsVersion`.
+
+### Step 6 · Wallet report / Отчёт пользователю
+
+В UI пользователь видит:
+
+- большую цифру **walletScore (0–100, 100 — самый «чистый»)** и
+  alertGrade `none / low / medium / high`,
+- per-chain карточки с балансом, активностью, контрагентами,
+- **Findings** — список факторов с весами, источниками и кликабельным
+  evidence (ссылки на Etherscan / OFAC / админскую запись),
+- **Trust signals** — что уравновесило риск (longevity, диверсификация
+  контрагентов, взаимодействие с лицензированными CEX/DeFi),
+- raw JSON под спойлером — для аудита.
+
+Параллельно с ответом пользователю на бэке тихо отрабатывает:
+
+- `saveReport()` — пишет финальный JSON в `report_cache`;
+- `persistExposures()` — записывает каждое совпадение в
+  `wallet_exposures` и поднимает кандидата в `taint_candidates` со
+  статусом `exposed` / `suspect`. **Это и есть автодетекция**:
+  каждый запрос юзера обогащает нашу базу новыми подозрительными
+  адресами без ручной работы (см. §5).
+
+> Все три «версии» (`methodologyVersion`, `profileVersion`,
+> `listsVersion`) живут прямо в payload отчёта — открыв тот же отчёт
+> через год, мы пересчитаем его 1-в-1, даже если поменяли веса или
+> каталог.
+
+---
+
+## 3. Engine flow under the hood / Внутренний flow движка
+
+Та же история, но «машинной» нотацией для разработчика:
 
 ```mermaid
 flowchart LR
@@ -27,40 +135,9 @@ flowchart LR
   Admin[/admin · import / entities / providers/] -. writes .-> Directory
 ```
 
-Каждый запрос на `/api/report` (`src/app/api/report/route.ts`) проходит шесть
-шагов:
-
-1. **Rate-limit** — `src/lib/rate-limit.ts` сверяется со счётчиком в
-   `rate_limit_log` (Supabase) или с in-memory fallback.
-2. **Cache lookup** — `getCachedReport()` смотрит `report_cache` по
-   `cache_key = address|methodologyVersion|listsVersionHash|depth|fanout`. Если
-   попали — возвращаем `cached: true`, ничего не считаем.
-3. **Chain ingest** — `defaultProvider.fetchChainFacts(address, chainId)` для
-   каждой из `CHAINS` (Ethereum + Base) шаг за шагом тянет:
-   - баланс и `txCount` через RPC,
-   - последние транзакции и transfer'ы через Etherscan V2,
-   - топ-контрагентов с агрегатами объёма и направления.
-4. **Graph expansion** — `expandGraph()` (тот же роут) обходит счёт BFS с
-   ограничениями `GRAPH_MAX_DEPTH`/`GRAPH_FANOUT_PER_NODE` и собирает
-   `GraphExposure[]`: «адрес X в Y хопах от нашего, через via».
-5. **Scoring** — `scoreAddress()` в `src/lib/scoring/engine.ts`:
-   - превращает `hitLabels` (прямые совпадения) и `graph.exposures` (BFS) в
-     `RiskFactor[]` и `TrustSignal[]`,
-   - суммирует с весами из `weights.ts` (с decay по hop'у),
-   - выдаёт `walletScore (0..100, 100 = strongest)`, `riskScore`, `trustScore`,
-     `confidence`, `alertGrade`, `signals`, `factors`, `trust`,
-     `methodologyVersion`, `listsVersion`.
-6. **Persist** — `saveReport()` пишет результат в `report_cache`,
-   `persistExposures()` фоном заливает «находки» в
-   `wallet_exposures` и поднимает кандидатов в `taint_candidates`.
-
-> Все три «версии» (`methodologyVersion`, `profileVersion`, `listsVersion`)
-> сохраняются прямо в payload отчёта — старый отчёт остаётся
-> воспроизводимым даже после смены весов или каталога.
-
 ---
 
-## 2. Internal database / Наша внутренняя база
+## 4. Internal database / Наша внутренняя база
 
 Схема живёт в `supabase/migrations/`. Сейчас применяются 4 миграции:
 
@@ -70,7 +147,7 @@ flowchart LR
 | `20260506000000_risk_directory.sql` | Risk Directory: категории, источники, сущности, адреса, profiles, watchlist, exposures, taint, audit. |
 | `20260506000001_auth_admin.sql` | Auth + per-user settings + RLS-политики. |
 | `20260506000002_admin_users.sql` | Таблица `admin_users` (роль `admin/analyst`), без env-переменных. |
-| `20260506000003_blocklist_taxonomy.sql` | Crystal-style теги (`us_ofac_sanctions`, `gainbitcoin_scam`, …) + `currency / owner_label / mentions / entry_description` на адресах + поддержка не-EVM (BTC/TRX/…). |
+| `20260506000003_blocklist_taxonomy.sql` | Расширенная таксономия тегов (`us_ofac_sanctions`, `gainbitcoin_scam`, …) + `currency / owner_label / mentions / entry_description` на адресах + поддержка не-EVM (BTC/TRX/…). |
 
 ### Главные таблицы
 
@@ -118,19 +195,19 @@ erDiagram
 
 ---
 
-## 3. How the directory is populated today / Как пополняется база сейчас
+## 5. How the directory is populated today / Как пополняется база сейчас
 
 База рисковых сущностей наполняется по трём каналам — каждый из них уже
 работает и ездит через `risk_entities` + `risk_entity_addresses`:
 
-### 3.1 Seed (bootstrap)
+### 5.1 Seed (bootstrap)
 - Внутри `src/lib/lists/{ofac,mixers,cex,bridges,defi}.ts` лежат курируемые
   списки. Они грузятся в memory и доступны через `lookupLabel()` даже без
   Supabase.
 - Категории и источники seed'ятся `INSERT … ON CONFLICT` в миграциях
   (`risk_categories`, `risk_sources`, `risk_score_profiles`).
 
-### 3.2 Manual entity creation — `/admin/entities`
+### 5.2 Manual entity creation — `/admin/entities`
 - Роут `POST /api/admin/entities` (`src/app/api/admin/entities/route.ts`):
   - требует роль `admin` (`requireAdmin()` против `admin_users`),
   - принимает `{ name, category_id, addresses: [{ currency, address, owner, mentions, … }] }`,
@@ -140,7 +217,7 @@ erDiagram
 - В UI — `src/components/admin/entity-create.tsx`: селекторы валюты
   (EVM + BTC/TRX/BCH/LTC/SOL/…), per-row owner / mentions / description.
 
-### 3.3 Bulk import — `/admin/import` (Crystal-style блок-лист)
+### 5.3 Bulk import — `/admin/import` (CSV / JSON)
 - `parseImport()` (`src/lib/admin/import.ts`) понимает CSV/JSON со столбцами:
   `address, currency, tag, owner, description, mentions, evidence_url, source_id, confidence` и алиасы (`category/type → category_id`, `notes → description`, …).
 - Если `owner` пустой / `Not defined` / `—`, строка автоматически бакетится
@@ -151,16 +228,16 @@ erDiagram
 - `/api/admin/import` группирует по `category|name`, создаёт/находит
   сущность, делает batch upsert адресов и кладёт `audit_events`.
 
-### 3.4 Auto-feedback из `/api/report`
+### 5.4 Auto-feedback из `/api/report`
 - После каждого пользовательского анализа `persistExposures()` пишет:
   - в `wallet_exposures` — лог совпадения (направление, hops, evidence),
   - в `taint_candidates` — апсертит состояние `exposed`/`suspect` с лучшим
     `max_confidence` и `max_hops`.
 - В обратную сторону resolver не открывает новые сущности (это намеренно —
   «exposure ≠ accusation»). Кандидат становится сущностью только после
-  ручного review (см. план в §5).
+  ручного review (см. план в §7).
 
-### 3.5 Кто читает базу при анализе
+### 5.5 Кто читает базу при анализе
 - `src/lib/lists/resolver.ts → ensureLabelIndex()` грузит ВСЕ активные
   адреса из `risk_entity_addresses` (с `chain_id IS NOT NULL`) и
   раскладывает их в in-memory `Map<address, LabelEntry>`.
@@ -173,14 +250,14 @@ erDiagram
 
 ---
 
-## 4. Automatic detection of suspicious wallets / Автодетекция
+## 6. Automatic detection of suspicious wallets / Автодетекция
 
 Цель: **из каждого пользовательского запроса извлекать список новых
 подозрительных адресов** и копить их в БД, чтобы аналитик мог быстро
 поднять подтверждённую сущность, а follow-up отчёты сразу видели
 «грязный» контекст.
 
-### 4.1 Ingest пользовательского кошелька
+### 6.1 Ingest пользовательского кошелька
 
 ```mermaid
 flowchart LR
@@ -195,13 +272,13 @@ flowchart LR
 каждого узла снова дергаются `hitLabels`**. Если в k-м хопе нашёлся адрес
 из `risk_entities` — это `GraphExposure`.
 
-### 4.2 Скоринг как «фильтр шума»
+### 6.2 Скоринг как «фильтр шума»
 
 `scoreAddress()` снижает вес каждой такой находки коэффициентом decay:
 `hop=1 → 0.65`, `hop=2 → 0.35`, `hop=3 → 0.18`. То есть «дальние» совпадения
 не ломают скоринг доверенного кошелька, но всё равно попадают в `factors`.
 
-### 4.3 Persist → wallet_exposures + taint_candidates
+### 6.3 Persist → wallet_exposures + taint_candidates
 
 `persistExposures()` (`src/lib/exposures/persist.ts`) после ответа
 пользователю фоном:
@@ -232,7 +309,7 @@ exposed ─► suspect ─► confirmed_risky
 кандидата → создаётся `risk_entity` с его адресом, и теперь все
 последующие `/api/report` уже видят его как «прямое попадание».
 
-### 4.4 Что уже автоматизировано / что вручную
+### 6.4 Что уже автоматизировано / что вручную
 
 | Шаг | Сейчас | План |
 |-----|--------|------|
@@ -246,12 +323,12 @@ exposed ─► suspect ─► confirmed_risky
 
 ---
 
-## 5. Continuous DB feed / Как держать базу живой
+## 7. Continuous DB feed / Как держать базу живой
 
 Чтобы каталог не остывал, нужно три параллельных конвейера. Один уже
 работает, два — следующий релиз.
 
-### 5.1 Внешние потоки (план Phase 2)
+### 7.1 Внешние потоки (план Phase 2)
 
 | Источник | Частота | Что в ней | Куда грузится |
 |----------|---------|-----------|----------------|
@@ -265,7 +342,7 @@ exposed ─► suspect ─► confirmed_risky
 worker (Vercel Cron / GitHub Action) → POST в `/api/admin/import` с
 сервис-ключом. Каждый job отмечается в `audit_events` и `static_list_versions`.
 
-### 5.2 Внутренний цикл (этот уже работает)
+### 7.2 Внутренний цикл (этот уже работает)
 
 ```mermaid
 flowchart LR
@@ -282,7 +359,7 @@ flowchart LR
 больше кандидатов. Положительная обратная связь уже встроена, осталось
 включить аналитический gate (Phase 2).
 
-### 5.3 Качество и шум
+### 7.3 Качество и шум
 
 Чтобы «авто-разрастание» не превращалось в шум:
 
@@ -297,7 +374,7 @@ flowchart LR
 
 ---
 
-## 6. Где это в коде / File map
+## 8. Где это в коде / File map
 
 | Слой | Файл |
 |------|------|
@@ -318,7 +395,7 @@ flowchart LR
 
 ---
 
-## 7. Operational checklist / Эксплуатация
+## 9. Operational checklist / Эксплуатация
 
 - Применить миграции: `pnpm dlx supabase db push --linked` (или вручную в
   SQL Editor — порядок по filename'у).

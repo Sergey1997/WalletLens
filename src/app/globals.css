@@ -4,7 +4,7 @@
 
 @layer base {
   :root {
-    /* Soft, light Crystal-style palette */
+    /* Soft, light palette */
     --background: 220 30% 98%;
     --foreground: 222 25% 12%;
     --card: 0 0% 100%;

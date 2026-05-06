@@ -185,7 +185,7 @@ export function AdminEntityCreate() {
         <CardTitle className="text-lg">Add suspicious entity</CardTitle>
         <p className="text-sm text-muted-foreground">
           Creates a new row in <span className="mono">risk_entities</span> and attaches addresses across any
-          supported network. Use the Crystal-style tags to mark tactics (e.g. <span className="mono">conti_hacking</span>),
+          supported network. Use the available tags to mark tactics (e.g. <span className="mono">conti_hacking</span>),
           and put a known operator in <span className="mono">owner</span> when one exists.
         </p>
       </CardHeader>

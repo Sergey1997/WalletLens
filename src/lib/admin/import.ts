@@ -1,7 +1,7 @@
 import { isEvmAddress, normalizeAddress } from "../address";
 
 /**
- * Mapping from a `currency` token (as it appears in Crystal-style imports)
+ * Mapping from a `currency` token (as it appears in blocklist-style imports)
  * to the EVM `chain_id` we know about. Anything not listed here is treated
  * as a non-EVM entry — we keep `chain_id = null` and store the address
  * verbatim, since BTC, TRX, etc. have their own address formats and case
