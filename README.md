@@ -1,14 +1,14 @@
 # WalletLens - EVM wallet risk reports
 
-.
+**Live demo:** [https://wallet-lens.vercel.app/](https://wallet-lens.vercel.app/)
 
 Transparent wallet risk reports across **Ethereum and Base**. Paste an EVM
 address to get a **wallet score 0-100 (100 = strongest)**, risk burden / trust / confidence, per-chain profile and clickable
 evidence for every factor.
 
-Built on **public signals only** (OFAC SDN snapshot, curated mixer / CEX / bridge / DeFi label sets,
-Etherscan V2 and Alchemy RPC ingestion). The architecture is intentionally pluggable so licensed
-risk data can be added through the `RiskDataProvider` interface without UI changes.
+Signals combine **seed lists in the repo** (OFAC snapshot, mixers, CEX, bridges, DeFi) with a **Supabase-backed Risk Directory** (`risk_entities` / `risk_entity_addresses`) that admins extend via CSV/JSON import. On-chain data comes from **Etherscan V2** and **Alchemy-style RPC**. The stack stays pluggable: licensed risk data can feed the same directory or a custom `RiskDataProvider` without rewriting the UI.
+
+For how a check runs end-to-end (cache, resolver, graph, scoring, auto-capture into exposures), see [`METHODOLOGY.md`](METHODOLOGY.md) and [`ENGINE.md`](ENGINE.md) (includes the architecture diagram).
 
 ---
 
@@ -18,7 +18,7 @@ risk data can be added through the `RiskDataProvider` interface without UI chang
 - **TypeScript**, **Tailwind**, shadcn-style UI primitives, **lucide-react**
 - **viem** for EIP-55 address utilities
 - **Zod** for request validation
-- **Supabase** (Postgres) for report cache, label storage, rate limits (graceful in-memory fallback)
+- **Supabase** (Postgres) for report cache, Risk Directory, watchlist, user settings, admin roster, rate limits (graceful in-memory fallback when unset)
 
 ## Quick start
 
@@ -61,9 +61,8 @@ Example: `{"ts":"...","level":"info","scope":"api/report","msg":"response_fresh"
 supabase db push --linked
 ```
 
-See [`supabase/migrations/20260423000000_init.sql`](supabase/migrations/20260423000000_init.sql).
-RLS is enabled on all tables with no policies — clients cannot read directly; the service role key
-(server-only) bypasses RLS.
+Apply all migrations under [`supabase/migrations/`](supabase/migrations/) (risk directory, auth, admin users, blocklist taxonomy).\
+RLS is enabled; the app uses the **service role** on the server only (never exposed to the browser).
 
 ## Architecture
 
@@ -83,11 +82,11 @@ UI (Next.js RSC)
 - **Add a chain**: append to `src/lib/chains.ts`; everything else is generic.
 - **Plug a licensed oracle**: implement `RiskDataProvider` (`src/lib/providers/types.ts`) and swap
   `defaultProvider` in `public-composite.ts`.
-- **Expand lists**: drop entries into `src/lib/lists/*.ts`, bump the `_VERSION` constant. Alternatively,
-  populate `public.label_entries` in Supabase and add a reader (TODO).
+- **Expand the risk directory**: with Supabase configured, use **Admin → Import** (CSV/JSON) or **Admin → Entities**; or add seed rows in `src/lib/lists/*.ts` and bump each file's `_VERSION` constant so `listsVersionHash` changes.
 
 ## Roadmap & engine internals
 
+- [`METHODOLOGY.md`](METHODOLOGY.md) — end-to-end report pipeline, metrics, weights, directory vs engine categories.
 - [`ROADMAP.en.md`](ROADMAP.en.md) — roadmap (English); [`ROADMAP.ru.md`](ROADMAP.ru.md) — дорожная карта (русский); [`ROADMAP.md`](ROADMAP.md) — указатель на обе версии.
 - [`ENGINE.md`](ENGINE.md) — как устроен движок, внутренняя БД (все таблицы +
   ER-диаграмма), как именно мы автоматически отлавливаем подозрительные

@@ -1,5 +1,7 @@
 # AML Risk Platform — Roadmap (index)
 
+Each language file opens with a short **executive Q&A** (timelines, team, architecture, phases, feeds, realism).
+
 The roadmap is split by language:
 
 | Language | File |

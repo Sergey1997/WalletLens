@@ -2,6 +2,18 @@
 
 Operational plan for evolving the current RPC/Etherscan wallet check into a risk intelligence platform: a proprietary directory of risky services, configurable scoring profiles, investigation UI, watchlist/monitoring and tainted-address tracking. Two phases: **MVP (4–6 weeks)** and **Production v1 (10–14 weeks)**.
 
+## At a glance — the questions that matter
+
+| Question | Short answer |
+|----------|--------------|
+| **Timelines** | The loop **scan → report → directory → exposures** already runs. **Finishing MVP** (investigation UX, scoring polish, ops stability): about **4–6 weeks** with **one** strong full‑stack engineer. **Production v1** (scheduled feeds, taint review in UI, basic alerting): another **10–14 weeks** part‑time; calendar‑wise often **~3–4 months** solo—second engineer on integrations or UI helps most. |
+| **Architecture & ownership** | Single repo: Next.js 14 + Supabase (Postgres, Auth). Migrations are the **data contract**; engine behavior in **`ENGINE.md`**, user-facing methodology in **`METHODOLOGY.md`**. No separate architecture org assumed—decisions live in code and docs. |
+| **Team** | **Minimum:** one full‑stack engineer (SQL, API, React). **Comfortable:** +1 on feeds/admin or heavy UI. Legal/compliance is **outside** this estimate; without it the product stays an **analytics tool**, not regulatory assurance. |
+| **Phases** | **(1) Shipped baseline:** DB directory, resolver, import, admin, reports, watchlist, auto exposure capture. **(2) MVP:** investigation layout, weights closer to DB‑driven config, fewer rough edges. **(3) v1:** **idempotent** external ingest jobs, `/admin/taint`, optional monitoring. |
+| **Best way forward** | Do not rewrite the stack. Grow the directory as source of truth; feeds include **lineage** and dedupe on `(entity_id, currency, address)`; promotion from `taint_candidates` stays **human‑in‑the‑loop**—no auto‑accusation of wallets. |
+| **Automatic data collection** | **Feasible** for **public** datasets (sanctions files, some community APIs)—parse, normalize, load the catalog. Hard parts: **licenses, rate limits, entity resolution quality**, ongoing maintenance—not missing technology. |
+| **Realistic on a shoestring?** | **Yes** as an internal or niche product: wallet checks, curated directory, methodology versioning. **No** for parity with large commercial AML suites (global coverage, legal opinions, 24/7 ops, certifications) without more people and budget. |
+
 **Languages:** [Русский → `ROADMAP.ru.md`](ROADMAP.ru.md) · [Index → `ROADMAP.md`](ROADMAP.md)
 
 Companion docs: [`README.md`](README.md), [`METHODOLOGY.md`](METHODOLOGY.md), [`ENGINE.md`](ENGINE.md) (engine, database and auto-detection in depth).
