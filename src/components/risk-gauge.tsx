@@ -14,31 +14,31 @@ function bandForWalletScore(score: number) {
   if (score >= 90)
     return {
       label: "Verified",
-      color: "hsl(142 71% 52%)",
-      bg: "bg-emerald-500/10 text-emerald-200 border-emerald-500/40",
+      color: "hsl(142 71% 38%)",
+      bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
   if (score >= 75)
     return {
       label: "Good",
-      color: "hsl(160 64% 48%)",
-      bg: "bg-emerald-500/10 text-emerald-200/90 border-emerald-500/30",
+      color: "hsl(160 64% 36%)",
+      bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
     };
   if (score >= 55)
     return {
       label: "Fair",
-      color: "hsl(45 95% 55%)",
-      bg: "bg-amber-500/10 text-amber-200 border-amber-500/35",
+      color: "hsl(38 92% 45%)",
+      bg: "bg-amber-50 text-amber-700 border-amber-200",
     };
   if (score >= 35)
     return {
       label: "Weak",
-      color: "hsl(25 95% 55%)",
-      bg: "bg-orange-500/10 text-orange-200 border-orange-500/40",
+      color: "hsl(25 95% 48%)",
+      bg: "bg-orange-50 text-orange-700 border-orange-200",
     };
   return {
     label: "Critical",
-    color: "hsl(0 84% 58%)",
-    bg: "bg-red-500/10 text-red-200 border-red-500/40",
+    color: "hsl(0 78% 48%)",
+    bg: "bg-red-50 text-red-700 border-red-200",
   };
 }
 
@@ -87,15 +87,15 @@ export function RiskGauge({ walletScore, riskBurden, trustScore, confidence }: P
         <div className="grid grid-cols-3 gap-3 text-sm">
           <div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Risk burden</div>
-            <div className="text-xl font-semibold text-amber-200/90">
+            <div className="text-xl font-semibold text-amber-700">
               {riskBurden}
-              <span className="ml-1 text-xs text-amber-300/70">−{effectivePenalty} pts</span>
+              <span className="ml-1 text-xs text-amber-700/80">−{effectivePenalty} pts</span>
             </div>
             <div className="text-[10px] text-muted-foreground">×{RISK_PENALTY_MULTIPLIER} multiplier</div>
           </div>
           <div>
             <div className="text-[10px] uppercase tracking-widest text-muted-foreground">Trust</div>
-            <div className="text-xl font-semibold text-emerald-300">{trustScore}</div>
+            <div className="text-xl font-semibold text-emerald-700">{trustScore}</div>
             <div className="text-[10px] text-muted-foreground">positive boost</div>
           </div>
           <div>

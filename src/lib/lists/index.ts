@@ -4,6 +4,7 @@ import { MIXERS, MIXERS_VERSION, MIXERS_UPDATED_AT_MS } from "./mixers";
 import { CEX_ADDRESSES, CEX_VERSION, CEX_UPDATED_AT_MS } from "./cex";
 import { BRIDGES, BRIDGES_VERSION, BRIDGES_UPDATED_AT_MS } from "./bridges";
 import { DEFI_KNOWN, DEFI_VERSION, DEFI_UPDATED_AT_MS } from "./defi";
+import { dbIndexSnapshot, lookupLabelDb, severityRank } from "./resolver";
 
 export interface ListSnapshotMeta {
   source: string;
@@ -12,7 +13,7 @@ export interface ListSnapshotMeta {
   size: number;
 }
 
-const ALL: LabelEntry[] = [
+const STATIC_ENTRIES: LabelEntry[] = [
   ...OFAC_SDN.map((l) => ({ ...l, address: l.address.toLowerCase() })),
   ...MIXERS.map((l) => ({ ...l, address: l.address.toLowerCase() })),
   ...CEX_ADDRESSES.map((l) => ({ ...l, address: l.address.toLowerCase() })),
@@ -20,10 +21,9 @@ const ALL: LabelEntry[] = [
   ...DEFI_KNOWN.map((l) => ({ ...l, address: l.address.toLowerCase() })),
 ];
 
-const INDEX: Map<string, LabelEntry> = (() => {
+const STATIC_INDEX: Map<string, LabelEntry> = (() => {
   const m = new Map<string, LabelEntry>();
-  for (const e of ALL) {
-    // Severity order: sanctioned > mixer > phishing/scam/exploit > bridge/cex/defi
+  for (const e of STATIC_ENTRIES) {
     const existing = m.get(e.address);
     if (!existing || severityRank(e.category) > severityRank(existing.category)) {
       m.set(e.address, e);
@@ -32,45 +32,40 @@ const INDEX: Map<string, LabelEntry> = (() => {
   return m;
 })();
 
-function severityRank(cat: LabelEntry["category"]): number {
-  switch (cat) {
-    case "sanctioned":
-      return 100;
-    case "mixer":
-      return 80;
-    case "phishing":
-    case "scam":
-    case "exploit":
-      return 70;
-    case "bridge":
-      return 30;
-    case "cex":
-      return 20;
-    case "dex":
-    case "lending":
-    case "defi":
-    case "marketplace":
-      return 10;
-    default:
-      return 0;
-  }
-}
-
+/**
+ * Resolve an address to a label.
+ *
+ * Lookup order:
+ *   1. DB-backed risk directory (warmed via `ensureLabelIndex` from resolver.ts).
+ *   2. Seeded in-repo static lists (always available).
+ *
+ * The DB hit wins when its mapped category is stricter than the seed-list one,
+ * so an OFAC entry from the DB does not get downgraded by a CEX seed entry.
+ */
 export function lookupLabel(address: string): LabelEntry | undefined {
-  return INDEX.get(address.toLowerCase());
+  const key = address.toLowerCase();
+  const dbHit = lookupLabelDb(key);
+  const staticHit = STATIC_INDEX.get(key);
+  if (dbHit && staticHit) {
+    return severityRank(dbHit.category) >= severityRank(staticHit.category) ? dbHit : staticHit;
+  }
+  return dbHit ?? staticHit;
 }
 
 export function listSnapshots(): ListSnapshotMeta[] {
-  return [
+  const base: ListSnapshotMeta[] = [
     { source: "OFAC SDN (seed)", version: OFAC_VERSION, updatedAtMs: OFAC_UPDATED_AT_MS, size: OFAC_SDN.length },
     { source: "Mixers (community)", version: MIXERS_VERSION, updatedAtMs: MIXERS_UPDATED_AT_MS, size: MIXERS.length },
     { source: "CEX hot wallets", version: CEX_VERSION, updatedAtMs: CEX_UPDATED_AT_MS, size: CEX_ADDRESSES.length },
     { source: "Bridges", version: BRIDGES_VERSION, updatedAtMs: BRIDGES_UPDATED_AT_MS, size: BRIDGES.length },
     { source: "DeFi known", version: DEFI_VERSION, updatedAtMs: DEFI_UPDATED_AT_MS, size: DEFI_KNOWN.length },
   ];
+  const db = dbIndexSnapshot();
+  return db ? [db, ...base] : base;
 }
 
 export function listsVersionHash(): string {
-  const parts = listSnapshots().map((s) => `${s.source}:${s.version}`);
-  return parts.join("|");
+  return listSnapshots().map((s) => `${s.source}:${s.version}`).join("|");
 }
+
+export { ensureLabelIndex } from "./resolver";

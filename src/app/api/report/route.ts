@@ -7,6 +7,8 @@ import { defaultProvider } from "@/lib/providers/public-composite";
 import { scoreAddress } from "@/lib/scoring/engine";
 import { getCachedReport, saveReport } from "@/lib/cache";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { ensureLabelIndex } from "@/lib/lists";
+import { persistExposures } from "@/lib/exposures/persist";
 import { getRequestId, log, runWithRequestId } from "@/lib/logger";
 import type { ChainFacts, GraphExposure } from "@/lib/types";
 
@@ -149,6 +151,8 @@ export async function POST(req: Request) {
     const address = normalizeAddress(parsed.address);
     log("api/report", "info", "address_normalized", { address, force: parsed.force === true });
 
+    await ensureLabelIndex();
+
     if (!parsed.force) {
       const tCache = Date.now();
       const cached = await getCachedReport(address);
@@ -216,6 +220,12 @@ export async function POST(req: Request) {
           ms: Date.now() - saveStart,
         });
       });
+
+    persistExposures(report).catch((e) => {
+      log("api/report", "warn", "exposures_persist_failed", {
+        err: e instanceof Error ? e.message : String(e),
+      });
+    });
 
     log("api/report", "info", "response_fresh", {
       address,

@@ -84,6 +84,14 @@ UI (Next.js RSC)
 - **Expand lists**: drop entries into `src/lib/lists/*.ts`, bump the `_VERSION` constant. Alternatively,
   populate `public.label_entries` in Supabase and add a reader (TODO).
 
+## Roadmap & engine internals
+
+- [`ROADMAP.md`](ROADMAP.md) — план на MVP и Production v1, статус по факту,
+  непрерывный поток пополнения каталога.
+- [`ENGINE.md`](ENGINE.md) — как устроен движок, внутренняя БД (все таблицы +
+  ER-диаграмма), как именно мы автоматически отлавливаем подозрительные
+  кошельки и как держать каталог живым.
+
 ## Disclaimer
 
 WalletLens surfaces **public signals** and does not publish accusations. For regulated workflows,

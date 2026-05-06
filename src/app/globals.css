@@ -4,24 +4,28 @@
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
-    --primary: 262 83% 68%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217 33% 15%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 262 83% 58%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 18%;
-    --input: 217 33% 14%;
-    --ring: 262 83% 58%;
-    --radius: 0.9rem;
+    /* Soft, light Crystal-style palette */
+    --background: 220 30% 98%;
+    --foreground: 222 25% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 25% 12%;
+    --primary: 216 100% 56%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 220 16% 95%;
+    --secondary-foreground: 222 25% 18%;
+    --muted: 220 16% 96%;
+    --muted-foreground: 220 12% 45%;
+    --accent: 216 100% 96%;
+    --accent-foreground: 216 100% 38%;
+    --destructive: 0 78% 56%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 16% 90%;
+    --input: 220 18% 96%;
+    --ring: 216 100% 56%;
+    --radius: 0.85rem;
+
+    --shadow-card: 0 1px 2px hsl(220 30% 50% / 0.04), 0 8px 28px -12px hsl(220 30% 30% / 0.08);
+    --shadow-pop: 0 12px 40px -16px hsl(216 100% 30% / 0.18);
   }
 
   * {
@@ -37,9 +41,8 @@
 
   body {
     background:
-      radial-gradient(1200px 600px at 15% -10%, hsl(262 83% 20% / 0.35), transparent 60%),
-      radial-gradient(900px 500px at 90% 10%, hsl(200 95% 25% / 0.25), transparent 60%),
-      radial-gradient(800px 600px at 50% 110%, hsl(280 85% 20% / 0.3), transparent 60%),
+      radial-gradient(900px 480px at 12% -10%, hsl(216 100% 50% / 0.05), transparent 65%),
+      radial-gradient(700px 420px at 92% 8%, hsl(192 100% 45% / 0.04), transparent 65%),
       hsl(var(--background));
     min-height: 100vh;
   }
@@ -47,10 +50,26 @@
 
 @layer components {
   .glass {
-    background: linear-gradient(180deg, hsl(222 47% 10% / 0.7), hsl(222 47% 7% / 0.6));
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    background: hsl(var(--card));
     border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow-card);
+  }
+
+  .surface-muted {
+    background: hsl(var(--muted));
+    border: 1px solid hsl(var(--border));
+  }
+
+  .code-block {
+    background: hsl(220 22% 96%);
+    border: 1px solid hsl(var(--border));
+    color: hsl(220 22% 22%);
   }
 
   .shimmer {
@@ -66,5 +85,34 @@
 
   .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .nav-link {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm text-muted-foreground transition-colors;
+  }
+
+  .nav-link:hover {
+    @apply text-foreground bg-muted;
+  }
+
+  .nav-link-active {
+    color: hsl(var(--accent-foreground));
+    background: hsl(var(--accent));
+  }
+
+  .icon-btn {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground;
+  }
+
+  .table-row {
+    @apply border-b border-border last:border-b-0;
+  }
+
+  .table-cell-pad {
+    @apply px-4 py-3;
+  }
+
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-0.5 text-xs font-medium text-muted-foreground;
   }
 }

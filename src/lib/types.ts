@@ -96,26 +96,37 @@ export interface ApiFields extends RiskSignals {
   error_code: number | null;
 }
 
-export interface LabelEntry {
-  address: string;
-  category: LabelCategory;
-  name?: string;
-  source: string;
-  sourceUrl?: string;
-}
-
 export type LabelCategory =
   | "sanctioned"
   | "mixer"
   | "phishing"
   | "scam"
   | "exploit"
+  | "darknet_market"
+  | "ransom"
+  | "gambling"
+  | "exchange_unlicensed"
   | "cex"
   | "bridge"
   | "dex"
   | "lending"
   | "defi"
   | "marketplace";
+
+export interface LabelEntry {
+  /** Lower-cased EVM address. Resolver always returns lower-case. */
+  address: string;
+  category: LabelCategory;
+  name?: string;
+  source: string;
+  sourceUrl?: string;
+  /** Optional risk-directory entity id; present only when the match came from the DB. */
+  entityId?: string;
+  /** Risk level 0-100 from the directory (DB rows only). */
+  riskLevel?: number;
+  /** Per-source confidence 0-100 from the directory (DB rows only). */
+  confidence?: number;
+}
 
 export interface Counterparty {
   address: string;

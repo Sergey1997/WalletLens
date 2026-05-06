@@ -7,7 +7,7 @@ export const metadata = { title: "WalletLens · methodology" };
 export default function Methodology() {
   const snapshots = listSnapshots();
   return (
-    <main className="mx-auto max-w-3xl px-4 py-16 prose prose-invert">
+    <main className="mx-auto max-w-3xl px-4 py-12 prose prose-slate">
       <h1>Methodology</h1>
       <p className="text-muted-foreground">
         Version <code>{METHODOLOGY_VERSION}</code>. Scoring is deterministic and auditable: every factor in a

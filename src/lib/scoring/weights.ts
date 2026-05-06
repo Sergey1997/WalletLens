@@ -13,6 +13,10 @@ export const WEIGHTS = {
   directMixer: 55,
   directPhishingOrScam: 60,
   directExploit: 65,
+  directDarknetMarket: 80,
+  directRansom: 75,
+  directGambling: 25,
+  directExchangeUnlicensed: 25,
   mixerVolumeShareMultiplier: 1.2,
   largeShareToUnknown: 12,
   burstActivityYoung: 8,
@@ -37,4 +41,4 @@ export const TRUST_WEIGHTS = {
   diverseCounterparties: 15,
 } as const;
 
-export const METHODOLOGY_VERSION = "mvp-1.3.0";
+export const METHODOLOGY_VERSION = "mvp-1.4.0";

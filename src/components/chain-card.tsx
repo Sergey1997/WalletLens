@@ -37,13 +37,13 @@ export function ChainCard({ chain, address }: { chain: ChainFacts; address: stri
       </div>
 
       {!chain.available ? (
-        <p className="mt-4 text-sm text-amber-300/90">
+        <p className="mt-4 text-sm text-amber-700">
           Source unavailable{chain.error ? ` — ${chain.error}` : ""}. Shown as inconclusive.
         </p>
       ) : (
         <>
           {chain.error && (
-            <p className="mt-3 text-xs text-amber-200/80 border border-amber-500/20 rounded-md px-2 py-1.5 bg-amber-500/5">
+            <p className="mt-3 text-xs text-amber-700 border border-amber-200 rounded-md px-2 py-1.5 bg-amber-50">
               {chain.error}
             </p>
           )}

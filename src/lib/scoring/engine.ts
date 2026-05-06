@@ -78,6 +78,30 @@ function alertGradeFor(riskScore: number): AlertGrade {
   return "none";
 }
 
+function baseWeightForCategory(category: LabelEntry["category"]): number {
+  switch (category) {
+    case "sanctioned":
+      return WEIGHTS.directSanctioned;
+    case "mixer":
+      return WEIGHTS.directMixer;
+    case "exploit":
+      return WEIGHTS.directExploit;
+    case "phishing":
+    case "scam":
+      return WEIGHTS.directPhishingOrScam;
+    case "darknet_market":
+      return WEIGHTS.directDarknetMarket;
+    case "ransom":
+      return WEIGHTS.directRansom;
+    case "gambling":
+      return WEIGHTS.directGambling;
+    case "exchange_unlicensed":
+      return WEIGHTS.directExchangeUnlicensed;
+    default:
+      return 0;
+  }
+}
+
 function stableId(value: string): number {
   let hash = 2166136261;
   for (let i = 0; i < value.length; i++) {
@@ -103,6 +127,18 @@ function signalFromLabel(label?: LabelEntry): RiskSignals {
       break;
     case "exploit":
       setMax(s, "stolen_coins", 1);
+      break;
+    case "darknet_market":
+      setMax(s, "dark_market", 1);
+      break;
+    case "ransom":
+      setMax(s, "ransom", 1);
+      break;
+    case "gambling":
+      setMax(s, "gambling", 0.6);
+      break;
+    case "exchange_unlicensed":
+      setMax(s, "exchange_unlicensed", 0.7);
       break;
     case "cex":
       setMax(s, "exchange_licensed", 0.2);
@@ -277,6 +313,42 @@ export function scoreAddress(input: ScoreInput): AddressReport {
           evidence: [{ address: label.address, label: label.name }],
           source: label.source,
         });
+      } else if (
+        label.category === "darknet_market" ||
+        label.category === "ransom" ||
+        label.category === "gambling" ||
+        label.category === "exchange_unlicensed"
+      ) {
+        const weight =
+          label.category === "darknet_market"
+            ? WEIGHTS.directDarknetMarket
+            : label.category === "ransom"
+              ? WEIGHTS.directRansom
+              : label.category === "gambling"
+                ? WEIGHTS.directGambling
+                : WEIGHTS.directExchangeUnlicensed;
+        const titleByCat: Record<string, string> = {
+          darknet_market: "Direct interaction with a darknet market",
+          ransom: "Direct interaction with a ransomware-linked address",
+          gambling: "Direct interaction with a gambling service",
+          exchange_unlicensed: "Direct interaction with an unlicensed exchange",
+        };
+        pushFactorDedup(factors, {
+          id: factorKey([label.category, chain.chainId, label.address]),
+          severity: severityFor(weight),
+          weight,
+          title: titleByCat[label.category],
+          description: `Counterparty ${label.name ?? label.address} is in the risk directory as ${label.category}.`,
+          chainId: chain.chainId,
+          evidence: [
+            {
+              address: label.address,
+              label: label.name,
+              url: label.sourceUrl ?? `${CHAIN_BY_ID[chain.chainId].explorerUrl}/address/${label.address}`,
+            },
+          ],
+          source: label.source,
+        });
       }
     }
 
@@ -310,16 +382,7 @@ export function scoreAddress(input: ScoreInput): AddressReport {
 
     for (const exposure of chain.graph?.exposures ?? []) {
       const decay = exposure.depth === 1 ? 0.65 : exposure.depth === 2 ? 0.35 : 0.18;
-      const base =
-        exposure.label.category === "sanctioned"
-          ? WEIGHTS.directSanctioned
-          : exposure.label.category === "mixer"
-            ? WEIGHTS.directMixer
-            : exposure.label.category === "exploit"
-              ? WEIGHTS.directExploit
-              : exposure.label.category === "phishing" || exposure.label.category === "scam"
-                ? WEIGHTS.directPhishingOrScam
-                : 0;
+      const base = baseWeightForCategory(exposure.label.category);
       if (base <= 0) continue;
       if (exposure.label.category === "sanctioned") hasSanctionHit = true;
       if (exposure.label.category === "mixer") hasMixerHit = true;
@@ -511,6 +574,17 @@ export function scoreAddress(input: ScoreInput): AddressReport {
     if (factor.id.startsWith("mixer")) setMax(signals, "mixer", v);
     if (factor.id.startsWith("phishing") || factor.id.startsWith("scam")) setMax(signals, "scam", v);
     if (factor.id.startsWith("exploit")) setMax(signals, "stolen_coins", v);
+    if (factor.id.startsWith("darknet_market") || factor.id.startsWith("graph:darknet_market"))
+      setMax(signals, "dark_market", v);
+    if (factor.id.startsWith("ransom") || factor.id.startsWith("graph:ransom"))
+      setMax(signals, "ransom", v);
+    if (factor.id.startsWith("gambling") || factor.id.startsWith("graph:gambling"))
+      setMax(signals, "gambling", v);
+    if (
+      factor.id.startsWith("exchange_unlicensed") ||
+      factor.id.startsWith("graph:exchange_unlicensed")
+    )
+      setMax(signals, "exchange_unlicensed", v);
     if (factor.id === "burst-young") setMax(signals, "wallet", v);
   }
   for (const t of trust) {

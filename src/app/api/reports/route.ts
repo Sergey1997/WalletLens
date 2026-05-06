@@ -15,9 +15,8 @@ export async function GET() {
   const { data, error } = await sb
     .from("report_cache")
     .select("payload, created_at")
-    .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false })
-    .limit(12);
+    .limit(24);
 
   if (error) {
     log("api/reports", "warn", "latest_reports_failed", { err: error.message });
