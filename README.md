@@ -4,7 +4,7 @@
 
 Transparent wallet risk reports across **Ethereum and Base**. Paste an EVM
 address to get a **wallet score 0-100 (100 = strongest)**, risk burden / trust / confidence, per-chain profile and clickable
-evidence for every factor.
+evidence for every factor..
 
 Signals combine **seed lists in the repo** (OFAC snapshot, mixers, CEX, bridges, DeFi) with a **Supabase-backed Risk Directory** (`risk_entities` / `risk_entity_addresses`) that admins extend via CSV/JSON import. On-chain data comes from **Etherscan V2** and **Alchemy-style RPC**. The stack stays pluggable: licensed risk data can feed the same directory or a custom `RiskDataProvider` without rewriting the UI.
 
